@@ -5,8 +5,6 @@ get Decent Sampler here: https://www.decentsamples.com/product/decent-sampler-pl
 
 # usage
 
-https://www.youtube.com/watch?v=P9xsx5-W5HQ
-
 you make a folder and put some wav file samples in it
 
 then you make an empty folder and give it a name
