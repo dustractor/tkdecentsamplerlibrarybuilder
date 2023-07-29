@@ -3,6 +3,11 @@ a tkinter utility for making a folder full of samples and a background image int
 
 get Decent Sampler here: https://www.decentsamples.com/product/decent-sampler-plugin/
 
+
+tl;dr here's a video: https://youtu.be/n9n_xIFs5Os
+
+---
+
 # usage
 
 you make a folder and put some wav file samples in it
