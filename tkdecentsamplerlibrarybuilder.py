@@ -1,20 +1,34 @@
+# version 0.2
+
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
 import pathlib
 import os
+import sys
 import shutil
 from xml.dom import minidom
 from string import Template
+import argparse
 
-home = pathlib.Path.home()
-Desktop = home / "Desktop"
-print("Desktop:",Desktop)
-bgfile_on_desktop = Desktop / "bg.png"
-desktop_bgfile_exists = bgfile_on_desktop.is_file()
-print("desktop_bgfile_exists:",desktop_bgfile_exists)
+_DESKTOP_BGFILE = pathlib.Path.home() / "Desktop" / "bg.png"
+
+args = argparse.ArgumentParser()
+args.add_argument("--input-folder",type=pathlib.Path)
+args.add_argument("--output-folder",type=pathlib.Path)
+args.add_argument("--background-image",type=pathlib.Path,
+                  default=_DESKTOP_BGFILE)
+args.add_argument("--start-note",type=int,default=21)
+ns = args.parse_args()
+
+print("ns:",ns)
+
+# sys.exit()
+
 
 _SENTINEL_UNSET = ":NOT SET:"
+_MSG_NOT_READY = "Not enough info to build!"
+_MSG_BUILD_START = "Build starting..."
 
 #{{{1 noteinfo
 
@@ -151,7 +165,6 @@ noteinfo = [
 
 #}}}1
 
-
 # {{{1 boilerplate
 boilerplate = Template(
     """<?xml version="1.0" encoding="UTF-8"?>
@@ -211,7 +224,6 @@ boilerplate = Template(
 </DecentSampler>
 """) #}}}1
 
-
 #{{{1 minidom setup
 
 def _elem_inplace_addition(self,other):
@@ -235,85 +247,118 @@ minidom.Element.__str__ = lambda s:s.toprettyxml().strip()
 
 #}}}1
 
-
 #{{{1 Toolbar
 class Toolbar(tk.Frame):
     def app_quit(self):
         print("bye")
         self.quit()
-    def choose_input_dir(self):
+    def choose_input_dir(self,*event):
         d = filedialog.askdirectory()
         print("d:",d)
         newpath = pathlib.Path(d).resolve()
         print("newpath:",newpath)
         if newpath.is_dir():
             self.master.input_dir.set(str(newpath))
-    def choose_output_dir(self):
+    def choose_output_dir(self,*event):
         d = filedialog.askdirectory()
         print("d:",d)
         newpath = pathlib.Path(d).resolve()
         print("newpath:",newpath)
         if newpath.is_dir():
             self.master.output_dir.set(str(newpath))
-    def choose_bg_image(self):
+
+    def choose_bg_image(self,*event):
         d = filedialog.askopenfilename(filetypes=[("PNG",".png")])
         print("d:",d)
         newpath = pathlib.Path(d).resolve()
         print("newpath:",newpath)
         if newpath.is_file():
-            self.master.bgfile.set(str(newpath))
-    def build_library_poll(self):
+            self.master.bgimg.set(str(newpath))
+
+    def build_library(self,*event):
+        if not self.build_library_poll():
+            self.master.status_message.set(_MSG_NOT_READY)
+            return
+
+        self.master.status_message.set(_MSG_BUILD_START)
+        self.master.update_idletasks()
+
         idir = pathlib.Path(self.master.input_dir.get())
         odir = pathlib.Path(self.master.output_dir.get())
-        bgimg = pathlib.Path(self.master.bgfile.get())
-        snote = self.master.startnote.get()
+        bgimg = pathlib.Path(self.master.bgimg.get())
+        notenum = int(self.master.startnote.get())
+        self.master.output_dir.set(self.master.output_dir.get())
         oname = self.master.output_name.get()
-        if (
-            (idir != _SENTINEL_UNSET) and
-            (odir != _SENTINEL_UNSET) and
-            (bgimg != _SENTINEL_UNSET) and
-            idir.is_dir() and
-            odir.is_dir() and
-            bgimg.is_file()
-        ):
-            print("Library build poll complete...")
-            self.build_library(idir,odir,bgimg,snote,oname)
-        else:
-            print("settings not completely filled out")
 
-    def build_library(self,idir,odir,bgimg,snote,oname):
-        print("idir,odir,bgimg,snote,oname:",idir,odir,bgimg,snote,oname)
         samples = list(idir.glob("*.wav"))
-        print("samples:",samples)
         for s in samples:
             shutil.copy(s,odir)
+            print(s,"copied to",odir)
+            
         shutil.copy(bgimg,odir)
+
+        print(bgimg,"copied to",odir)
+
         presetfilepath = odir / (oname + ".dspreset")
         libraryfilepath = odir.parent / (oname + ".dslibrary")
+
         doc = minidom.Document()
         elem = doc.createElement
         root = elem("group")
-        notenum = int(snote)
+
         for s in odir.glob("*.wav"):
             sample_elem = elem("sample")
             sample_elem.attrt(("path",s.name))
             sample_elem.attrt(("loNote",str(notenum)))
             sample_elem.attrt(("hiNote",str(notenum)))
             sample_elem.attrt(("rootNote",str(notenum)))
-            notenum += 1
             root += sample_elem
+            notenum += 1
+
         groupxml = root.toprettyxml().strip()
         mapping = dict(bg_img=str(bgimg),samples=groupxml)
         group_content_str = boilerplate.substitute(mapping)
 
         with open(presetfilepath,"w") as presetfile:
             presetfile.write(group_content_str)
-        shutil.make_archive(libraryfilepath,"zip",odir)
-        zippedlibpath = pathlib.Path(str(libraryfilepath) + ".zip")
-        print("zippedlibpath:",zippedlibpath)
-        zippedlibpath.rename(libraryfilepath)
-        os.startfile(odir.parent)
 
+        print("preset file written in",odir)
+        print("zipping",odir,"up...",end="")
+        shutil.make_archive(libraryfilepath,"zip",odir)
+        print("zipped OK")
+        print("zip archive created:",libraryfilepath)
+        zippedlibpath = pathlib.Path(str(libraryfilepath) + ".zip")
+        zippedlibpath.rename(libraryfilepath)
+        print("archive renamed with dslibrary suffix(",zippedlibpath,")")
+        os.startfile(odir.parent)
+        print("BUILD COMPLETED")
+        print("-"*40)
+        self.master.status_message.set("Built "+libraryfilepath.name)
+
+    def build_library_poll(self):
+        idir_t = self.master.input_dir.get()
+        odir_t = self.master.output_dir.get()
+        bgimg_t = self.master.bgimg.get()
+        if idir_t == odir_t:
+            return False
+        if not idir_t or (idir_t == _SENTINEL_UNSET):
+            return False
+        if not odir_t or (odir_t == _SENTINEL_UNSET):
+            return False
+        if not bgimg_t or (odir_t == _SENTINEL_UNSET):
+            return False
+        idir = pathlib.Path(idir_t)
+        odir = pathlib.Path(odir_t)
+        bgimg = pathlib.Path(bgimg_t)
+        if not idir.is_dir():
+            return False
+        if not odir.is_dir():
+            return False
+        if not bgimg.is_file():
+            return False
+        if not bgimg.suffix.lower() == ".png":
+            return False
+        return True
 
 
         
@@ -322,15 +367,30 @@ class Toolbar(tk.Frame):
         self.menubutton = tk.Menubutton(self,text="Menu")
         self.menubutton.menu = tk.Menu(self.menubutton,tearoff=False)
         self.menubutton["menu"] = self.menubutton.menu
-        self.menubutton.menu.add_command(command=self.app_quit,label="Exit")
-        self.menubutton.menu.add_command(command=self.choose_input_dir,label="Choose Input Folder...")
-        self.menubutton.menu.add_command(command=self.choose_output_dir,label="Choose Output Folder...")
-        self.menubutton.menu.add_command(command=self.choose_bg_image,label="Choose Background Image...")
-        self.menubutton.menu.add_command(command=self.build_library_poll,label="Build Library")
+        self.menubutton.menu.add_command(command=self.choose_input_dir,
+                                         label="Choose Input Folder...",
+                                         accelerator="Ctrl+I")
+        self.menubutton.menu.add_command(command=self.choose_output_dir,
+                                         label="Choose Output Folder...",
+                                         accelerator="Ctrl+O")
+        self.menubutton.menu.add_command(command=self.choose_bg_image,
+                                         label="Choose Background Image...",
+                                         accelerator="Ctrl+B")
+        self.menubutton.menu.add_command(command=self.build_library,
+                                         label="Build Library",
+                                         accelerator="Ctrl+K")
+        self.menubutton.menu.add_command(command=self.app_quit,
+                                         label="Exit",
+                                         accelerator="Ctrl+Q")
         self.menubutton.pack(anchor="w")
 #}}}1
 
+#{{{1 App
+
 class App(tk.Tk):
+
+    #{{{2 input_dir_info trace function
+
     def input_dir_info(self,*ignore):
         print("-"*40)
         print("Input Folder Info:")
@@ -346,6 +406,10 @@ class App(tk.Tk):
             print("no info")
         print("-"*40)
 
+    #}}}2
+
+    #{{{2 output_dir_info trace function
+
     def output_dir_info(self,*ignore):
         print("-"*40)
         print("Output Folder Info:")
@@ -360,76 +424,141 @@ class App(tk.Tk):
         else:
             print("no info")
         print("-"*40)
+
+    #}}}2
+
+    #{{{2 startnote_info trace function
+
     def startnote_info(self,*ignore):
         note_i = self.startnote.get()
         print("note_i:",note_i)
         info = noteinfo[int(note_i)]
         self.startnote_info.set(info)
 
-
+    #}}}2
+    
     def __init__(self):
         super().__init__()
+        """Set up the variables"""
         self.input_dir = tk.StringVar()
-        self.input_dir.set(_SENTINEL_UNSET)
+        if ns.input_folder and ns.input_folder.is_dir():
+            self.input_dir.set(ns.input_folder)
+        else:
+            self.input_dir.set(_SENTINEL_UNSET)
         self.input_dir.trace("w",self.input_dir_info)
         self.input_dir_wavfile_count = tk.IntVar()
+
         self.output_dir = tk.StringVar()
-        self.output_dir.set(_SENTINEL_UNSET)
+        if ns.output_folder and ns.output_folder.is_dir():
+            self.output_dir.set(ns.output_folder)
+        else:
+            self.output_dir.set(_SENTINEL_UNSET)
         self.output_dir.trace("w",self.output_dir_info)
         self.output_name = tk.StringVar()
-        self.bgfile = tk.StringVar()
-        if desktop_bgfile_exists:
-            self.bgfile.set(str(bgfile_on_desktop))
+        
+        self.bgimg = tk.StringVar()
+        if (ns.background_image.is_file() and
+            ns.background_image.suffix.lower() == ".png"):
+            self.bgimg.set(str(ns.background_image))
         else:
-            self.bgfile.set(_SENTINEL_UNSET)
+            self.bgimg.set(_SENTINEL_UNSET)
+
         self.startnote = tk.IntVar()
         self.startnote.trace("w",self.startnote_info)
         self.startnote_info = tk.StringVar()
-        self.startnote.set(21)
+        self.startnote.set(ns.start_note)
+        
+        self.status_message = tk.StringVar()
+
+        """Create the widgets"""
         self.toolbar = Toolbar(self)
         self.toolbar.pack(expand=True,fill="x")
+
+        ttk.Separator(self).pack(expand=True,fill="x")
+
         self.mainframe = tk.Frame(self)
         self.mainframe.pack(expand=True,fill="both")
 
-        self.input_dir_frame = ttk.Labelframe(self.mainframe,text="Input Folder")
+        self.input_dir_frame = ttk.Labelframe(self.mainframe,
+                                              text="Input Folder")
         self.input_dir_frame.pack()
-        self.input_dir_label = tk.Label(self.input_dir_frame,textvariable=self.input_dir)
+        self.input_dir_label = tk.Label(self.input_dir_frame,
+                                        textvariable=self.input_dir)
         self.input_dir_label.pack()
-        self.input_dir_info_frame = ttk.Labelframe(self.input_dir_frame,text="wav file count")
+        self.input_dir_info_frame = ttk.Labelframe(self.input_dir_frame,
+                                                   text="wav file count")
         self.input_dir_info_frame.pack()
-        self.filecount_label = tk.Label(self.input_dir_info_frame,textvariable=self.input_dir_wavfile_count)
+        self.filecount_label = tk.Label(self.input_dir_info_frame,
+                                        textvariable=self.input_dir_wavfile_count)
         self.filecount_label.pack()
 
         ttk.Separator(self.mainframe).pack(expand=True,fill="x")
 
-        self.output_dir_frame = ttk.Labelframe(self.mainframe,text="Output Folder")
+        self.output_dir_frame = ttk.Labelframe(self.mainframe,
+                                               text="Output Folder")
         self.output_dir_frame.pack()
-        self.output_dir_label = tk.Label(self.output_dir_frame,textvariable=self.output_dir)
+        self.output_dir_label = tk.Label(self.output_dir_frame,
+                                         textvariable=self.output_dir)
         self.output_dir_label.pack()
-        self.output_dir_info_frame = ttk.Labelframe(self.output_dir_frame,text="Output Name")
+        self.output_dir_info_frame = ttk.Labelframe(self.output_dir_frame,
+                                                    text="Output Name")
         self.output_dir_info_frame.pack()
-        self.output_name_label = tk.Label(self.output_dir_info_frame,textvariable=self.output_name)
+        self.output_name_label = tk.Label(self.output_dir_info_frame,
+                                          textvariable=self.output_name)
         self.output_name_label.pack()
 
         ttk.Separator(self.mainframe).pack(expand=True,fill="x")
 
-        self.bg_img_frame = ttk.Labelframe(self.mainframe,text="Background Image (812px x 375px)")
+        self.bg_img_frame = ttk.Labelframe(self.mainframe,
+                                           text="Background Image (812px x 375px)")
         self.bg_img_frame.pack()
-        self.bg_img_label = tk.Label(self.bg_img_frame,textvariable=self.bgfile)
+        self.bg_img_label = tk.Label(self.bg_img_frame,textvariable=self.bgimg)
         self.bg_img_label.pack()
 
         ttk.Separator(self.mainframe).pack(expand=True,fill="x")
-        self.start_note_frame = ttk.Labelframe(self.mainframe,text="Starting Note Number")
+        self.start_note_frame = ttk.Labelframe(self.mainframe,
+                                               text="Starting Note Number")
         self.start_note_frame.pack()
-        self.start_note_spinbox = tk.Spinbox(self.start_note_frame,from_=0,to=127,textvariable=self.startnote,wrap=True)
+        self.start_note_spinbox = tk.Spinbox(self.start_note_frame,
+                                             from_=0,to=127,
+                                             textvariable=self.startnote,
+                                             wrap=True)
         self.start_note_spinbox.pack()
-        self.start_note_info_frame = ttk.Labelframe(self.start_note_frame,text="Note Info")
+        self.start_note_info_frame = ttk.Labelframe(self.start_note_frame,
+                                                    text="Note Info")
         self.start_note_info_frame.pack()
-        self.start_note_label = tk.Label(self.start_note_info_frame,textvariable=self.startnote)
+        self.start_note_label = tk.Label(self.start_note_info_frame,
+                                         textvariable=self.startnote)
         self.start_note_label.pack()
-        self.start_note_info_label = tk.Label(self.start_note_info_frame,textvariable=self.startnote_info)
+        self.start_note_info_label = tk.Label(self.start_note_info_frame,
+                                              textvariable=self.startnote_info)
         self.start_note_info_label.pack()
 
+        ttk.Separator(self.mainframe).pack(expand=True,fill="x")
+
+        self.build_button = tk.Button(self.mainframe,text="Build Library",
+                                      command=self.toolbar.build_library)
+        self.build_button.pack()
+
+        ttk.Separator(self.mainframe).pack(expand=True,fill="x")
+
+        self.statusbar = ttk.Label(self.mainframe,
+                                   background="#CCC",
+                                  textvariable=self.status_message)
+        self.statusbar.pack(expand=True,fill="x")
+
+        """Bind the accelerators"""
+        self.bind("<Control-q>",lambda _:self.quit())
+        self.bind("<Control-i>",self.toolbar.choose_input_dir)
+        self.bind("<Control-o>",self.toolbar.choose_output_dir)
+        self.bind("<Control-b>",self.toolbar.choose_bg_image)
+        self.bind("<Control-k>",self.toolbar.build_library)
+
+        """Check if ready to build"""
+        if self.toolbar.build_library_poll():
+            self.status_message.set("Ready to build")
+
+#}}}1
 
 if __name__ == "__main__":
     App().mainloop()
