@@ -49,7 +49,7 @@ if this is useful to you my cashapp handle is $shamskitz throw me a couple bucks
 
 ---
 
-##change log
+## change log
 
 added command-line arguments.  Run with ``--help`` flag to see them.
 
@@ -57,7 +57,7 @@ there is also 'fancy' branch which uses ttkbootstrap to make the ui look a bit m
 
 ---
 
-##road map
+## road map
 
 make it pip installable
 
