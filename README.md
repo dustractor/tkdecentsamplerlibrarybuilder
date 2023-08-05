@@ -8,6 +8,8 @@ tl;dr here's a video: https://youtu.be/n9n_xIFs5Os
 
 ---
 
+
+
 # usage
 
 you make a folder and put some wav file samples in it
@@ -44,3 +46,28 @@ https://www.mp3tag.de/en/index.html is useful to remove the metadata
 
 
 if this is useful to you my cashapp handle is $shamskitz throw me a couple bucks so I can keep making useful stuff
+
+---
+
+##change log
+
+added command-line arguments.  Run with ``--help`` flag to see them.
+
+there is also 'fancy' branch which uses ttkbootstrap to make the ui look a bit more modern.  will merge that into this branch once I'm sure it runs ok with or without ttkbootstrap.
+
+---
+
+##road map
+
+make it pip installable
+
+support for multiple groups
+
+NOT planning to tackle legato
+
+options for what controls to show / what midi mappings to assign
+
+colors
+
+a better tutorial
+
