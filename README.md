@@ -8,8 +8,6 @@ tl;dr here's a video: https://youtu.be/n9n_xIFs5Os
 
 ---
 
-
-
 # usage
 
 you make a folder and put some wav file samples in it
@@ -36,7 +34,29 @@ on my machine that folder is C:\Users\user\AppData\Roaming\Decidedly\DecentSampl
 
 that's it good luck have fun
 
+### command-line options:
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --do-build
+      --input-folder INPUT_FOLDER
+      --output-folder OUTPUT_FOLDER
+      --background-image BACKGROUND_IMAGE
+      --start-note START_NOTE
+      --have-reverb
+      --have-tone
+      --have-chorus
+      --have-midicc1
+      --no-attack
+      --no-decay
+      --cut-all-by-all
+      --silencing-mode {normal,fast}
+      --theme {cosmo,flatly,litera,minty,lumen,sandstone,yeti,pulse,united,morph,journal,darkly,superhero,solar,cyborg,vapor,simplex,cerculean}
+
+
 # tips
+
+windows users: right-click builder.vbs -> send to desktop (create shortcut) is the thing you want to do if you want something double-clickable.
 
 you can use audacity to make a macro to convert non-wav files into wavs https://www.audacityteam.org
 
@@ -53,7 +73,7 @@ if this is useful to you my cashapp handle is $shamskitz throw me a couple bucks
 
 added command-line arguments.  Run with ``--help`` flag to see them.
 
-there is also 'fancy' branch which uses ttkbootstrap to make the ui look a bit more modern.  will merge that into this branch once I'm sure it runs ok with or without ttkbootstrap.
+~~there is also 'fancy' branch which uses ttkbootstrap to make the ui look a bit more modern.  will merge that into this branch once I'm sure it runs ok with or without ttkbootstrap.~~ branch merged
 
 ---
 
@@ -65,7 +85,7 @@ support for multiple groups
 
 NOT planning to tackle legato
 
-options for what controls to show / what midi mappings to assign
+more options for what controls to show / what midi mappings to assign
 
 colors
 
