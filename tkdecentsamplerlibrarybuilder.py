@@ -1,11 +1,6 @@
 # version 0.4
 import tkinter as tk
-try:
-    import ttkbootstrap as ttk
-    _BOOTSTRAPPED = True
-except ImportError:
-    import tkinter.ttk as ttk
-    _BOOTSTRAPPED = False
+import tkinter.ttk as ttk
 from tkinter import filedialog
 import pathlib
 import shutil
@@ -37,11 +32,6 @@ args.add_argument("--no-release",action="store_true")
 args.add_argument("--cut-all-by-all",action="store_true")
 args.add_argument("--silencing-mode",choices=["normal","fast"],
                   default="normal")
-if _BOOTSTRAPPED:
-    args.add_argument("--theme",
-                      choices=list(
-                          ttk.themes.standard.STANDARD_THEMES.keys()),
-                      default="darkly")
 ns = args.parse_args()
 print("argument namespace:",ns)
 # import sys
@@ -197,6 +187,9 @@ minidom.Element.__str__ = lambda s:s.toprettyxml().strip()
 #}}}1
 #{{{1 Toolbar
 class Toolbar(ttk.Frame):
+    @property
+    def parent(self):
+        return self.master.master
     #{{{2 app_quit
     def app_quit(self):
         print("bye")
@@ -209,7 +202,7 @@ class Toolbar(ttk.Frame):
         newpath = pathlib.Path(d).resolve()
         print("newpath:",newpath)
         if newpath.is_dir():
-            self.master.input_dir.set(str(newpath))
+            self.parent.input_dir.set(str(newpath))
     #}}}2
     #{{{2 choose_output_dir
     def choose_output_dir(self,*event):
@@ -218,7 +211,7 @@ class Toolbar(ttk.Frame):
         newpath = pathlib.Path(d).resolve()
         print("newpath:",newpath)
         if newpath.is_dir():
-            self.master.output_dir.set(str(newpath))
+            self.parent.output_dir.set(str(newpath))
     #}}}2
     #{{{2 choose_bg_image
     def choose_bg_image(self,*event):
@@ -227,21 +220,21 @@ class Toolbar(ttk.Frame):
         newpath = pathlib.Path(d).resolve()
         print("newpath:",newpath)
         if newpath.is_file():
-            self.master.bgimg.set(str(newpath))
+            self.parent.bgimg.set(str(newpath))
     #}}}2
     #{{{2 build_library
     def build_library(self,*event):
         if not self.build_library_poll():
-            self.master.status_message.set(_MSG_NOT_READY)
+            self.parent.status_message.set(_MSG_NOT_READY)
             return
-        self.master.status_message.set(_MSG_BUILD_START)
-        self.master.update_idletasks()
-        idir = pathlib.Path(self.master.input_dir.get())
-        odir = pathlib.Path(self.master.output_dir.get())
-        bgimg = pathlib.Path(self.master.bgimg.get())
-        notenum = int(self.master.startnote.get())
-        self.master.output_dir.set(self.master.output_dir.get())
-        oname = self.master.output_name.get()
+        self.parent.status_message.set(_MSG_BUILD_START)
+        self.parent.update_idletasks()
+        idir = pathlib.Path(self.parent.input_dir.get())
+        odir = pathlib.Path(self.parent.output_dir.get())
+        bgimg = pathlib.Path(self.parent.bgimg.get())
+        notenum = int(self.parent.startnote.get())
+        self.parent.output_dir.set(self.parent.output_dir.get())
+        oname = self.parent.output_name.get()
         samples = list(idir.glob("*.wav"))
         for s in samples:
             shutil.copy(s,odir)
@@ -250,14 +243,14 @@ class Toolbar(ttk.Frame):
         print(bgimg,"copied to",odir)
         presetfilepath = odir / (oname + ".dspreset")
         libraryfilepath = odir.parent / (oname + ".dslibrary")
-        have_attack = self.master.have_attack_knob.get()
-        have_decay = self.master.have_decay_knob.get()
-        have_sustain = self.master.have_sustain_knob.get()
-        have_release = self.master.have_release_knob.get()
-        have_tone = self.master.have_tone_knob.get()
-        have_chorus = self.master.have_chorus_knob.get()
-        have_reverb = self.master.have_reverb_knob.get()
-        have_midicc1 = self.master.have_midicc1.get()
+        have_attack = self.parent.have_attack_knob.get()
+        have_decay = self.parent.have_decay_knob.get()
+        have_sustain = self.parent.have_sustain_knob.get()
+        have_release = self.parent.have_release_knob.get()
+        have_tone = self.parent.have_tone_knob.get()
+        have_chorus = self.parent.have_chorus_knob.get()
+        have_reverb = self.parent.have_reverb_knob.get()
+        have_midicc1 = self.parent.have_midicc1.get()
         doc = minidom.Document()
         elem = doc.createElement
         root = elem("DecentSampler")
@@ -463,10 +456,10 @@ class Toolbar(ttk.Frame):
             sample_elem.attrt(("rootNote",str(notenum)))
             group += sample_elem
             notenum += 1
-        if self.master.cut_all_by_all.get():
+        if self.parent.cut_all_by_all.get():
             group.attrt(("tags","cutgroup0"))
             group.attrt(("silencedByTags","cutgroup0"))
-            group.attrt(("silencingMode",self.master.silencing_mode.get()))
+            group.attrt(("silencingMode",self.parent.silencing_mode.get()))
         fx = elem("effects")
         root += fx
         if have_chorus:
@@ -515,13 +508,13 @@ class Toolbar(ttk.Frame):
         print("archive renamed with dslibrary suffix(",zippedlibpath,")")
         print("BUILD COMPLETED")
         print("-"*40)
-        self.master.status_message.set("Built "+libraryfilepath.name)
+        self.parent.status_message.set("Built "+libraryfilepath.name)
     #}}}2
     #{{{2 build_library_poll
     def build_library_poll(self):
-        idir_t = self.master.input_dir.get()
-        odir_t = self.master.output_dir.get()
-        bgimg_t = self.master.bgimg.get()
+        idir_t = self.parent.input_dir.get()
+        odir_t = self.parent.output_dir.get()
+        bgimg_t = self.parent.bgimg.get()
         if idir_t == odir_t:
             return False
         if not idir_t or (idir_t == _SENTINEL_UNSET):
@@ -546,12 +539,8 @@ class Toolbar(ttk.Frame):
     #{{{2 __init__
     def __init__(self,master):
         super().__init__(master)
-        if _BOOTSTRAPPED:
-            menu_class = ttk.Menu
-        else:
-            menu_class = tk.Menu
         self.menubutton = ttk.Menubutton(self,text="Menu")
-        self.menubutton.menu = menu_class(self.menubutton,tearoff=False)
+        self.menubutton.menu = tk.Menu(self.menubutton,tearoff=False)
         self.menubutton["menu"] = self.menubutton.menu
         self.menubutton.menu.add_command(command=self.choose_input_dir,
                                          label="Choose Input Folder...",
@@ -573,11 +562,7 @@ class Toolbar(ttk.Frame):
 
 #}}}1
 #{{{1 App
-if _BOOTSTRAPPED:
-    app_class = ttk.Window
-else:
-    app_class = tk.Tk
-class App(app_class):
+class App(tk.Tk):
     #{{{2 input_dir_info trace function
     def input_dir_info(self,*ignore):
         print("-"*40)
@@ -618,8 +603,8 @@ class App(app_class):
         self.startnote_info.set(info)
     #}}}2
     #{{{2 __init__
-    def __init__(self,**kw):
-        super().__init__(**kw)
+    def __init__(self):
+        super().__init__()
         """Set up the variables"""
         self.input_dir = tk.StringVar()
         if ns.input_folder and ns.input_folder.is_dir():
@@ -667,10 +652,12 @@ class App(app_class):
         self.silencing_mode.set(ns.silencing_mode)
         self.status_message = tk.StringVar()
         """Create the widgets"""
-        self.toolbar = Toolbar(self)
+        self.outerframe = ttk.Frame(self)
+        self.outerframe.pack(expand=True,fill="both")
+        self.toolbar = Toolbar(self.outerframe)
         self.toolbar.pack(expand=True,fill="x")
-        ttk.Separator(self).pack(expand=True,fill="x")
-        self.mainframe = ttk.Frame(self)
+        ttk.Separator(self.outerframe).pack(expand=True,fill="x")
+        self.mainframe = ttk.Frame(self.outerframe)
         self.mainframe.pack(expand=True,fill="both")
         self.input_dir_frame = ttk.Labelframe(self.mainframe,
                                               text="Input Folder")
@@ -813,8 +800,10 @@ class App(app_class):
                 sys.exit()
     #}}}2
 #}}}1
+
 if __name__ == "__main__":
-    if _BOOTSTRAPPED:
-        App(themename=ns.theme).mainloop()
-    else:
-        App().mainloop()
+    app = App()
+    app.tk.call("source", "azure.tcl")
+    # app.tk.call("set_theme", "light")
+    app.tk.call("set_theme", "dark")
+    app.mainloop()
